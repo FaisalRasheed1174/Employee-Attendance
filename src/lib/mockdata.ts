@@ -1070,6 +1070,7 @@ export const employeeMonthlyCalendar = [
 // 11. Attendance Policy
 // ---------------------------------------------------------------------------
 
+
 export const attendancePolicy = {
   id: "policy-001",
   officeName: "Main Office — Riyadh",
@@ -1081,4 +1082,188 @@ export const attendancePolicy = {
   minimumFullDayMinutes: 420,
   minimumHalfDayMinutes: 210,
   active: true,
+};
+
+// ---------------------------------------------------------------------------
+// 12. Audit Logs
+// ---------------------------------------------------------------------------
+
+export type AuditAction =
+  | "ATTENDANCE_CHECK_IN"
+  | "ATTENDANCE_CHECK_OUT"
+  | "ATTENDANCE_CORRECTION"
+  | "ATTENDANCE_REJECTED"
+  | "EMPLOYEE_CREATED"
+  | "EMPLOYEE_UPDATED"
+  | "EMPLOYEE_DEACTIVATED"
+  | "POLICY_UPDATED";
+
+export const auditLogs = [
+  {
+    id: "audit-001",
+    actorId: "user-001",
+    actorName: "Sarah Al-Otaibi",
+    action: "ATTENDANCE_CORRECTION" as AuditAction,
+    targetType: "AttendanceRecord",
+    targetId: "att-005",
+    metadata: {
+      reason: "Employee requested half-day correction",
+      previousStatus: "PRESENT",
+      newStatus: "HALF_DAY",
+    },
+    ipAddress: "192.168.1.45",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    createdAt: "2026-07-01T18:00:00Z",
+  },
+  {
+    id: "audit-002",
+    actorId: "user-005",
+    actorName: "Noura Al-Qahtani",
+    action: "ATTENDANCE_REJECTED" as AuditAction,
+    targetType: "AttendanceAttempt",
+    targetId: "attempt-001",
+    metadata: {
+      reason: "Employee was 480m outside allowed office radius",
+      distanceMeters: 480,
+      accuracyMeters: 22,
+    },
+    ipAddress: "192.168.1.102",
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+    createdAt: "2026-07-01T07:52:00Z",
+  },
+  {
+    id: "audit-003",
+    actorId: "user-004",
+    actorName: "Omar Al-Harbi",
+    action: "ATTENDANCE_CHECK_IN" as AuditAction,
+    targetType: "AttendanceRecord",
+    targetId: "att-003",
+    metadata: { distanceMeters: 34, accuracyMeters: 12 },
+    ipAddress: "192.168.1.78",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    createdAt: "2026-07-01T08:00:00Z",
+  },
+  {
+    id: "audit-004",
+    actorId: "user-001",
+    actorName: "Sarah Al-Otaibi",
+    action: "EMPLOYEE_CREATED" as AuditAction,
+    targetType: "Employee",
+    targetId: "emp-011",
+    metadata: { name: "Lina Al-Sulami", department: "HR", employeeCode: "EMP-0011" },
+    ipAddress: "192.168.1.45",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    createdAt: "2023-08-22T10:30:00Z",
+  },
+  {
+    id: "audit-005",
+    actorId: "user-001",
+    actorName: "Sarah Al-Otaibi",
+    action: "POLICY_UPDATED" as AuditAction,
+    targetType: "AttendancePolicy",
+    targetId: "policy-001",
+    metadata: {
+      field: "allowedRadiusMeters",
+      previousValue: 150,
+      newValue: 200,
+    },
+    ipAddress: "192.168.1.45",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    createdAt: "2026-06-15T09:00:00Z",
+  },
+  {
+    id: "audit-006",
+    actorId: "user-002",
+    actorName: "Khalid Bin Nasser",
+    action: "ATTENDANCE_CHECK_OUT" as AuditAction,
+    targetType: "AttendanceRecord",
+    targetId: "att-001",
+    metadata: { distanceMeters: 52, totalMinutes: 543 },
+    ipAddress: "192.168.1.55",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    createdAt: "2026-07-01T17:05:00Z",
+  },
+  {
+    id: "audit-007",
+    actorId: "user-001",
+    actorName: "Sarah Al-Otaibi",
+    action: "EMPLOYEE_DEACTIVATED" as AuditAction,
+    targetType: "Employee",
+    targetId: "emp-009",
+    metadata: { reason: "Resigned. Last working day 2026-05-31." },
+    ipAddress: "192.168.1.45",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    createdAt: "2026-05-31T16:00:00Z",
+  },
+  {
+    id: "audit-008",
+    actorId: "user-001",
+    actorName: "Sarah Al-Otaibi",
+    action: "EMPLOYEE_UPDATED" as AuditAction,
+    targetType: "Employee",
+    targetId: "emp-003",
+    metadata: { field: "jobTitle", previousValue: "Analyst", newValue: "Financial Analyst" },
+    ipAddress: "192.168.1.45",
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    createdAt: "2026-04-10T11:20:00Z",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// 13. Current employee's attendance records (emp-001 — Sarah Al-Otaibi)
+// Used by the employee dashboard and employee attendance pages.
+// ---------------------------------------------------------------------------
+
+export const currentEmployeeAttendance = [
+  {
+    id: "att-e001",
+    employeeId: "emp-001",
+    employeeName: "Sarah Al-Otaibi",
+    department: "HR",
+    date: "2026-07-01",
+    checkInAt: "2026-07-01T07:50:00Z",
+    checkOutAt: "2026-07-01T17:15:00Z",
+    totalMinutes: 565,
+    status: "PRESENT" as AttendanceStatus,
+    isLate: false,
+    lateMinutes: 0,
+    source: "WEB" as AttendanceSource,
+    checkInDistanceMeters: 18,
+    checkOutDistanceMeters: 22,
+  },
+  {
+    id: "att-e002",
+    employeeId: "emp-001",
+    employeeName: "Sarah Al-Otaibi",
+    department: "HR",
+    date: "2026-07-02",
+    checkInAt: "2026-07-02T07:48:00Z",
+    checkOutAt: null,
+    totalMinutes: null,
+    status: "PRESENT" as AttendanceStatus,
+    isLate: false,
+    lateMinutes: 0,
+    source: "WEB" as AttendanceSource,
+    checkInDistanceMeters: 15,
+    checkOutDistanceMeters: null,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// 14. Current employee monthly summary (emp-001, July 2026)
+// ---------------------------------------------------------------------------
+
+export const currentEmployeeMonthlySummary = {
+  employeeId: "emp-001",
+  employeeName: "Sarah Al-Otaibi",
+  department: "HR",
+  month: "2026-07",
+  presentDays: 2,
+  lateDays: 0,
+  absentDays: 0,
+  halfDays: 0,
+  leaveDays: 0,
+  missingCheckoutDays: 0,
+  totalWorkedMinutes: 565,
+  averageWorkedMinutes: 283,
 };
