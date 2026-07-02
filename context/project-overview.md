@@ -462,6 +462,242 @@ GET    /api/admin/audit-logs
 
 ---
 
+
+## UI/Ex Guidlines
+
+## Desing Principles 
+
+## 🎨 UI Design Principles
+
+The UI must be designed specifically for an Employee Attendance System. It should feel like a professional internal HR, operations, and workforce management tool — not a SaaS marketing dashboard, CRM, collections product, analytics template, or design-system showcase.
+
+### 1. Attendance-First Interface
+
+Every dashboard, table, card, and chart must support attendance-related decisions.
+
+Prioritize information such as:
+
+* Who is present today.
+* Who is late today.
+* Who is absent today.
+* Who has not checked out.
+* Which employees have incomplete attendance records.
+* How many hours employees worked.
+* Which records need admin review or correction.
+
+Do not show unrelated SaaS metrics such as revenue, collections, campaigns, leads, conversion rates, subscribers, invoices, marketing assets, or growth analytics.
+
+### 2. Role-Based UI Clarity
+
+The interface must change based on the logged-in user’s role.
+
+Employee UI should focus on:
+
+* Check in.
+* Check out.
+* Today’s attendance status.
+* Location permission status.
+* Worked hours.
+* Monthly personal attendance history.
+
+Manager UI should focus on:
+
+* Team attendance visibility.
+* Department-level filters.
+* Late arrivals.
+* Missing checkout records.
+* Employee attendance profiles.
+
+Admin UI should focus on:
+
+* Full employee management.
+* Attendance overview.
+* Policy configuration.
+* Attendance corrections.
+* Audit logs.
+* System-wide filters and reporting.
+
+Admin, manager, and employee flows must remain visually and functionally separate.
+
+### 3. Operational Dashboard Design
+
+The admin dashboard should look like a live operations panel for attendance monitoring.
+
+Use practical dashboard cards such as:
+
+* Total active employees.
+* Present today.
+* Late today.
+* Absent today.
+* Missing check-out today.
+* Average working hours.
+
+Use dashboard sections such as:
+
+* Recent attendance events.
+* Late arrivals list.
+* Missing check-out list.
+* Attendance records table.
+* Department and date filters.
+
+Avoid decorative cards that do not help the admin understand attendance status.
+
+### 4. Clear Status System
+
+Attendance status must be easy to scan.
+
+Use consistent badges, labels, and colors for:
+
+* PRESENT
+* LATE
+* HALF_DAY
+* ABSENT
+* ON_LEAVE
+* MISSING_CHECKOUT
+
+Status labels should appear consistently in:
+
+* Dashboard cards.
+* Attendance tables.
+* Employee profile pages.
+* Monthly calendar.
+* Filters.
+* Admin correction views.
+
+The user should understand an employee’s attendance state without opening extra details.
+
+### 5. Calendar-Centered Attendance Review
+
+Employee profiles should use a monthly calendar as a primary review tool.
+
+The calendar should make it easy to see:
+
+* Present days.
+* Late days.
+* Absent days.
+* Half days.
+* Missing checkout days.
+* Leave days.
+* Total worked hours for the month.
+
+Each calendar day should show a clear status and allow admins or managers to inspect the related attendance record.
+
+### 6. Fast Filtering and Scanning
+
+Attendance data should be easy to filter, scan, and compare.
+
+Tables should support filters for:
+
+* Employee.
+* Department.
+* Date.
+* Month.
+* Status.
+* Late-only.
+* Missing checkout-only.
+
+Tables should use clear columns, readable spacing, sticky or visible actions, and empty states when no records match the filters.
+
+### 7. Action-Oriented Employee Experience
+
+The employee dashboard should make the next action obvious.
+
+If the employee has not checked in, the main action should be Check In.
+
+If the employee has checked in but not checked out, the main action should be Check Out.
+
+If the employee has completed the day, show check-in time, check-out time, and total worked hours.
+
+The UI should clearly show whether location access is allowed, denied, loading, inaccurate, or outside the approved office radius.
+
+### 8. Location Feedback Must Be Human-Friendly
+
+Location validation errors should be clear and helpful.
+
+Examples:
+
+* “Allow location access to check in.”
+* “Your GPS accuracy is too low. Move near a window or try again.”
+* “You are outside the allowed attendance area. Move within the office radius and try again.”
+* “Attendance policy is not active. Contact an admin.”
+
+Do not expose technical distance calculations as the main user message unless shown as supporting detail.
+
+### 9. Trust, Security, and Auditability
+
+The UI should communicate that attendance data is controlled, validated, and traceable.
+
+Admin correction screens must show:
+
+* Original check-in/check-out values.
+* Updated values.
+* Required correction reason.
+* Who made the correction.
+* When the correction was made.
+
+Sensitive actions should feel deliberate, not casual. Use confirmation dialogs for destructive or corrective actions.
+
+### 10. Production-Ready Empty and Error States
+
+Every page must include meaningful empty, loading, and error states.
+
+Examples:
+
+* No attendance records found for this month.
+* No late arrivals today.
+* No employees match the selected filters.
+* Attendance policy has not been configured.
+* Location permission denied.
+* Unable to load dashboard summary.
+* Employee is inactive and cannot check in.
+
+Do not leave blank tables, broken cards, placeholder charts, or dummy content.
+
+### 11. Minimal, Professional Visual Style
+
+Use a clean internal-tool design style.
+
+Recommended style:
+
+* Simple layout.
+* Clear typography.
+* High contrast.
+* Consistent spacing.
+* Practical icons only.
+* Responsive tables and cards.
+* Accessible buttons and form fields.
+* Calm status colors.
+* No flashy marketing gradients or landing-page sections.
+
+The design should support daily operational use by HR, managers, admins, and employees.
+
+### 12. Data Must Look Real and Connected
+
+The UI should be designed around real backend data.
+
+Do not build screens using static dummy arrays that cannot connect to the database.
+
+Dashboard cards, tables, calendars, filters, and profile pages must be designed as database-backed components that can handle real employees, real attendance records, real timestamps, and real attendance policies.
+
+### 13. Keep the Product Scope Focused
+
+The interface should not introduce unrelated modules unless they support attendance.
+
+Do not add:
+
+* Marketing pages.
+* Pricing pages.
+* Brand asset libraries.
+* Campaign dashboards.
+* Collections dashboards.
+* Sales CRM sections.
+* Finance analytics.
+* Generic SaaS widgets.
+* Design-system documentation pages.
+
+Everything in the UI must directly support employee attendance, employee management, location-based check-in/check-out, attendance reporting, or admin control.
+
+
 ## Production Rules for Coding Agents
 
 1. Do not use dummy attendance arrays.
