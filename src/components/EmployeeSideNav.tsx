@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { currentUser } from "@/lib/mockdata";
+import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/employee/dashboard",  label: "My Dashboard" },
@@ -10,8 +9,19 @@ const navItems = [
   { href: "/employee/profile",    label: "My Profile" },
 ];
 
-export function EmployeeSideNav() {
+type Props = {
+  userName: string;
+  userRole: string;
+};
+
+export function EmployeeSideNav({ userName, userRole }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
 
   return (
     <aside className="fixed top-0 left-0 h-screen w-60 bg-slate-900 flex flex-col z-10">
@@ -43,21 +53,21 @@ export function EmployeeSideNav() {
 
       {/* User footer */}
       <div className="px-4 py-4 border-t border-slate-700/60">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {currentUser.name.charAt(0)}
+            {userName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
-            <p className="text-xs text-slate-400">Employee</p>
+            <p className="text-sm font-medium text-white truncate">{userName}</p>
+            <p className="text-xs text-slate-400">{userRole}</p>
           </div>
         </div>
-        <Link
-          href="/admin/dashboard"
-          className="mt-3 block text-xs text-slate-400 hover:text-slate-200 transition-colors"
+        <button
+          onClick={handleLogout}
+          className="block w-full text-left text-xs text-slate-400 hover:text-slate-200 transition-colors"
         >
-          Switch to Admin View →
-        </Link>
+          Sign out →
+        </button>
       </div>
     </aside>
   );

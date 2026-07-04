@@ -1,77 +1,152 @@
-# Current Feature: Iteration 01 — Mock Data Foundation
+# Current Feature: Iteration 03 — Production Backend Integration
 
 ## Status
 
-In Progress
+Completed
 
 ## Goals
 
-Create a single source of truth for temporary mock data used by the Employee Attendance System UI while the real database is not yet implemented.
+Replace all temporary mock data with a real production-ready backend.
 
-The mock data must support:
+The project must become a fully working Employee Attendance System with authentication, role-based authorization, PostgreSQL persistence, server-side attendance timestamps, backend location validation, and audit logging.
 
-- Admin dashboard
-- Manager dashboard
-- Employee dashboard
-- Employee attendance profile
-- Attendance tables
-- Monthly attendance calendar
-- Recent attendance events
-- Late arrivals
-- Missing checkouts
-- Absence summaries
-- Attendance policy display
-
-This iteration is only for static display data. No helper functions, fake APIs, service logic, calculations, Prisma schema, backend routes, or React components.
+The mock data in `src/lib/mockdata.ts` is temporary and must be replaced. Dashboard data must not remain hardcoded. Attendance validity must never be decided on the frontend.
 
 ## Implementation Details
 
-**File:** `src/lib/mockdata.ts`
+### Database
 
-This file is the only source of temporary mock data for the dashboard UI.
+PostgreSQL via Prisma. Core models:
 
-**Exports:**
-
-| Export | Description |
+| Model | Purpose |
 |---|---|
-| `currentUser` | Admin user object — default for admin dashboard views |
-| `employees` | 12 employees across Engineering, HR, Finance, Operations, Sales, Support |
-| `attendanceRecords` | Records for current month covering all attendance statuses |
-| `absences` | Unexcused absences and approved leave records |
-| `employeeMonthlySummaries` | Per-employee monthly rollup for dashboard cards and profile pages |
-| `dashboardSummary` | Card values for the admin dashboard |
-| `recentAttendanceEvents` | 10 events — check-ins, late check-ins, check-outs, corrections |
-| `lateArrivals` | Records for the late arrivals panel |
-| `missingCheckoutRecords` | Records for the missing checkout panel |
-| `employeeMonthlyCalendar` | Calendar grid data for a single employee's month view |
-| `attendancePolicy` | Office location, radius, work start time, and timezone |
+| `User` | Authentication identity — id, name, email, passwordHash, role, status, lastLoginAt |
+| `Employee` | Staff profile — id, userId, employeeCode, phone, departmentId, jobTitle, hiredAt, status |
+| `Department` | Department reference |
+| `AttendanceRecord` | One record per employee per date — check-in/out, totalMinutes, status, isLate, GPS coords, source, correction fields |
+| `AttendancePolicy` | Office location, radius, workStartTime, timezone, thresholds, active flag |
+| `AuditLog` | actorId, action, targetType, targetId, metadata, ipAddress, userAgent |
 
-**TypeScript union types exported:**
+**Key constraints:**
+- Unique constraint on `AttendanceRecord(employeeId, date)` — no duplicate records per employee per day
+- Indexes on `employeeId`, `date`, `status`, `isLate`
+- Passwords stored as hashes only — never plain text
 
-- `UserRole` — `"ADMIN" | "MANAGER" | "EMPLOYEE"`
-- `UserStatus` — `"ACTIVE" | "INACTIVE" | "SUSPENDED"`
-- `EmployeeStatus` — `"ACTIVE" | "INACTIVE" | "SUSPENDED"`
-- `AttendanceStatus` — `"PRESENT" | "LATE" | "HALF_DAY" | "ABSENT" | "ON_LEAVE" | "MISSING_CHECKOUT"`
-- `AbsenceStatus` — `"ABSENT" | "ON_LEAVE" | "UNEXCUSED"`
-- `AttendanceEventType` — `"CHECK_IN" | "CHECK_OUT" | "LATE_CHECK_IN" | "MISSING_CHECKOUT" | "ADMIN_CORRECTION" | "REJECTED_LOCATION"`
-- `AttendanceSource` — `"EMPLOYEE" | "ADMIN_CORRECTION" | "SYSTEM"`
+### Authentication
+
+| Route | Method |
+|---|---|
+| `/api/auth/login` | POST |
+| `/api/auth/logout` | POST |
+| `/api/auth/me` | GET |
+
+- Secure password hashing
+- HTTP-only cookies or secure sessions
+- Role-based redirect after login (`ADMIN`/`MANAGER` → `/admin/dashboard`, `EMPLOYEE` → `/employee/dashboard`)
+
+### Authorization (enforced server-side, not UI-only)
+
+| Area | Employee | Manager | Admin |
+|---|---|---|---|
+| Employee self dashboard | Yes | No | No |
+| Own attendance history | Yes | No | No |
+| Admin dashboard | No | Yes | Yes |
+| Employee management | No | Limited | Yes |
+| Attendance correction | No | Optional | Yes |
+| Policy settings | No | No | Yes |
+
+### Location-based attendance validation
+
+Frontend sends `{ latitude, longitude, accuracyMeters }`. Backend must:
+
+1. Load active attendance policy
+2. Calculate distance from office coordinates
+3. Reject if distance > allowed radius
+4. Reject or flag if GPS accuracy is too poor
+5. Use **server time** for check-in/check-out timestamp
+6. Create or update attendance record
+7. Write audit log
+
+Error message: `You are outside the allowed attendance area. Move within the office radius and try again.`
+
+### Attendance logic
+
+**Check-in:** employee must be active, policy must be active, inside radius, no duplicate for today → create record, calculate lateness, write audit log.
+
+**Check-out:** employee must be active, already checked in today, not already checked out, inside radius → update record, calculate totalMinutes and final status, write audit log.
+
+### API routes
+
+**Employee**
+```
+GET  /api/employee/attendance?month=YYYY-MM
+POST /api/attendance/check-in
+POST /api/attendance/check-out
+```
+
+**Admin**
+```
+GET    /api/admin/dashboard/summary
+GET    /api/admin/employees
+POST   /api/admin/employees
+GET    /api/admin/employees/:id
+PATCH  /api/admin/employees/:id
+DELETE /api/admin/employees/:id
+GET    /api/admin/attendance
+PATCH  /api/admin/attendance/:id
+GET    /api/admin/settings/attendance-policy
+PATCH  /api/admin/settings/attendance-policy
+GET    /api/admin/audit-logs
+```
+
+### Admin attendance correction
+
+Requires: correction reason, `correctedById`, `correctionReason`, recalculated totalMinutes and status, audit log entry. Correction screen must show original and updated values, who corrected, and when.
+
+### Monthly calendar
+
+Generated from real attendance records. Route: `/admin/employees/:employeeId?month=YYYY-MM`
+
+### Audit log events
+
+Employee created/updated/deactivated/deleted, check-in/check-out attempt, failed location validation, admin correction, policy update, unauthorized access attempts.
+
+### Edge cases to handle
+
+- Employee denies location permission
+- Low-accuracy GPS from browser
+- Duplicate check-in attempt
+- Missing checkout (checked in, never checked out)
+- Check-out without check-in
+- Inactive or suspended employee attempting check-in
+- Attendance policy missing or inactive
+- Timezone differences between server and office location
+- Employee calling admin APIs
 
 ## Testing
 
-- Verify `src/lib/mockdata.ts` exists and all exports are importable.
-- Verify data matches the Employee Attendance System domain (no SaaS, CRM, marketing, or finance data).
-- Verify employee IDs referenced in attendance records, absences, late arrivals, missing checkouts, and calendar data match entries in the `employees` array.
-- Verify the admin dashboard UI can import `dashboardSummary`, `recentAttendanceEvents`, `lateArrivals`, and `missingCheckoutRecords`.
-- Verify employee UI can filter `attendanceRecords` and `employeeMonthlyCalendar` by `currentUser.employeeId`.
+- Admin can create a real employee account
+- Employee can log in with email and password
+- Employee can check in only when inside the allowed 200m radius
+- Employee can check out and total hours are calculated correctly
+- Admin can view attendance records from the database
+- Admin can filter by employee, date, month, status, late-only, and missing checkout
+- Admin can open employee profile and view a real monthly calendar
+- Attendance data survives page refresh and redeployment
+- Auth is real — unauthenticated requests are rejected
+- Authorization is enforced on the backend — employees cannot access admin APIs
+- Location validation happens on the backend — frontend coordinates are verified server-side
+- Audit log entries are created for all sensitive actions
+- Mock data is no longer the source of any production dashboard data
 
 ## Notes
 
-- `currentUser` defaults to an admin (emp-001) so the admin dashboard renders all data without filtering.
-- All attendance records use ISO 8601 timestamps.
-- `checkOutAt` and `totalMinutes` are `null` for ABSENT and MISSING_CHECKOUT records.
-- `employeeMonthlyCalendar` currently contains only Jul 1–2 entries for emp-002; remaining days will be populated by the real database.
-- Spec reference: `context/features/dashboard-phase1-spec.md`
+- `src/lib/mockdata.ts` stays in place during development but all UI imports must be replaced by real API calls
+- Out of scope for this iteration: payroll, face recognition, QR check-in, mobile app, multi-office, leave approval, biometrics
+- Spec reference: `context/features/dashbaord-phase3-spec.md`
 
 ## History
 
-- 2026-07-02 — `src/lib/mockdata.ts` created. All 11 exports implemented. Status set to In Progress.
+- 2026-07-02 — **Iteration 01 completed**: Mock Data Foundation. Created `src/lib/mockdata.ts` as the single source of truth for all dashboard display data. Exported 11 data objects (`currentUser`, `employees`, `attendanceRecords`, `absences`, `employeeMonthlySummaries`, `dashboardSummary`, `recentAttendanceEvents`, `lateArrivals`, `missingCheckoutRecords`, `employeeMonthlyCalendar`, `attendancePolicy`) plus TypeScript union types. Added `auditLogs`, `currentEmployeeAttendance`, `currentEmployeeMonthlySummary` during Iteration 02. Branch: `feat/mock-data-foundation`. Spec: `context/features/dashboard-phase1-spec.md`.
+- 2026-07-02 — **Iteration 02 completed**: Dashboard UI and Attendance Screens. Built 13 routes (zero TypeScript errors, clean `next build`) using only mock data and Tailwind CSS — no external component libraries. Admin routes: `/admin/dashboard` (KPI cards, recent events, late arrivals, missing checkout, attendance table), `/admin/employees` (list), `/admin/employees/new` (form, UI only), `/admin/employees/:id` (profile + June 2026 calendar grid), `/admin/employees/:id/edit` (form, UI only), `/admin/attendance` (full table + filter panel), `/admin/settings` (policy display), `/admin/audit-logs` (audit trail). Employee routes: `/employee/dashboard` (today status, Check In/Out panel with location state simulation), `/employee/attendance` (calendar + history), `/employee/profile`. Shared components: `StatusBadge`, `EmployeeStatusBadge`, `CalendarDot`, `AdminSideNav`, `EmployeeSideNav`, `MonthlyCalendar`, `CheckInOutPanel`. Utility: `src/lib/format.ts`. Branch: `feat/mock-data-foundation`. Spec: `context/features/dashbaord-phase2-spec.md`.
+- 2026-07-04 — **Iteration 03 completed**: Production Backend Integration. Replaced all mock data with a real production-ready backend. Added: Prisma v5 schema with 6 models (User, Employee, Department, AttendanceRecord, AttendancePolicy, AuditLog), PostgreSQL persistence, JWT auth in HTTP-only cookies (jose), bcrypt password hashing, RBAC proxy (Next.js 16 `src/proxy.ts`), Haversine-based server-side GPS validation, full CRUD API routes (auth, attendance, admin employees, admin attendance, settings, audit logs), seed script (6 departments, default policy, admin user `admin@company.com`/`Admin1234!`), server actions for employee create/edit/deactivate and attendance correction, real Prisma queries on all pages with graceful DB-not-connected amber banners. Zero TypeScript errors, clean `npm run build`. Branch: `feat/backend-integration`. Spec: `context/features/dashbaord-phase3-spec.md`.

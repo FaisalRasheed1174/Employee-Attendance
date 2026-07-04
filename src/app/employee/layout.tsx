@@ -1,9 +1,26 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { EmployeeSideNav } from "@/components/EmployeeSideNav";
 
-export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
+export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
+  let userName = session.name;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { name: true },
+    });
+    if (user) userName = user.name;
+  } catch {
+    // DB not yet connected — use session data
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <EmployeeSideNav />
+      <EmployeeSideNav userName={userName} userRole={session.role} />
       <main className="ml-60 flex-1 min-h-screen">{children}</main>
     </div>
   );
