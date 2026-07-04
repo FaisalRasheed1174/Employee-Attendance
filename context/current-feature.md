@@ -1,4 +1,94 @@
-# Current Feature: Iteration 03 — Production Backend Integration
+# Current Feature: Iteration 04 — Neon PostgreSQL & Prisma 7 Migration
+
+## Status
+
+Not Started
+
+## Goals
+
+Migrate the database layer from a locally configured PostgreSQL connection to Neon PostgreSQL (cloud), and upgrade Prisma from v5 to v7 (which has breaking changes). All schema changes must go through Prisma migrations — never `db push`. Dev and production use separate Neon branch connection strings.
+
+## Implementation Details
+
+### Database Provider
+
+Replace local PostgreSQL with Neon PostgreSQL.
+
+- Neon provides branching: one branch for development (`DATABASE_URL`), a separate branch for production (`DATABASE_URL_PROD` or configured per environment).
+- Connection string format: `postgresql://user:password@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`
+- Always use `sslmode=require` for Neon connections.
+- Setup guide: https://www.prisma.io/docs/getting-started/prisma-orm/quickstart/prisma-postgres
+
+### Prisma Upgrade: v5 → v7
+
+Prisma 7 has breaking changes. Read the full upgrade guide before writing any code:
+https://www.prisma.io/docs/orm/more/upgrade-guides/upgrading-versions/upgrading-to-prisma-7
+
+Key known breaking changes in Prisma 7:
+- The `datasource` block no longer supports the `url` property using `env()` the same way — verify exact syntax in the upgrade guide.
+- `@prisma/client` import path or instantiation may have changed.
+- Some query API methods may have been renamed or removed.
+- The `prisma generate` output location or format may differ.
+
+Steps:
+1. Read the Prisma 7 upgrade guide fully before touching any code.
+2. Update `package.json`: `"prisma": "^7"` and `"@prisma/client": "^7"`.
+3. Run `npm install`.
+4. Update `prisma/schema.prisma` to match Prisma 7 syntax.
+5. Update `src/lib/prisma.ts` client singleton if the instantiation API changed.
+6. Verify all Prisma query calls in API routes and server actions still match v7 API.
+
+### Migration Strategy
+
+- Never use `prisma db push` — always create named migrations.
+- Run `npx prisma migrate dev --name <descriptive-name>` for dev.
+- For production: `npx prisma migrate deploy` against the production Neon branch.
+- Keep the `prisma/migrations/` folder committed to the repo.
+
+### Environment Variables
+
+```env
+# Development (Neon dev branch)
+DATABASE_URL="postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require"
+JWT_SECRET="change-me-to-a-random-32-char-secret"
+NODE_ENV="development"
+```
+
+Production uses a separate Neon branch — configure in hosting environment, not committed.
+
+### Seed Data
+
+After migration, re-run the existing seed script to populate:
+- 6 departments
+- Default attendance policy (200m radius, 08:00 start, Asia/Riyadh)
+- Admin user: `admin@company.com` / `Admin1234!`
+
+```bash
+npx prisma db seed
+```
+
+### Verification Checklist
+
+- [ ] Prisma 7 installed, `npx prisma generate` runs without errors
+- [ ] `prisma/schema.prisma` valid under Prisma 7 syntax
+- [ ] Initial migration created under `prisma/migrations/`
+- [ ] `npx prisma migrate dev` applies cleanly to Neon dev branch
+- [ ] Seed runs successfully against Neon
+- [ ] All API routes and server actions compile and run against Neon
+- [ ] `npm run build` passes with zero TypeScript errors
+- [ ] Login with seeded admin account works end-to-end
+
+## Notes
+
+- Current Prisma version: v5.22.0 — must upgrade to v7.
+- Current `DATABASE_URL` is local PostgreSQL — must be replaced with Neon connection string.
+- The existing schema in `prisma/schema.prisma` covers all 6 models; only syntax adjustments for Prisma 7 are expected, not structural changes.
+- `src/lib/prisma.ts` uses a `globalThis` singleton pattern — verify this still applies in v7.
+- Spec reference: `context/features/database-spec.md`
+
+## History
+
+# Previous Feature: Iteration 03 — Production Backend Integration
 
 ## Status
 
