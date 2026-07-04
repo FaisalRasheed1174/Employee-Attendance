@@ -46,86 +46,36 @@ Create 8 employees connected to the user records above. Each employee needs a Us
 | Abdullah Al-Shehri | DevOps      | DevOps Engineer    | `ACTIVE`   |
 | Maha Al-Anazi      | Support     | Support Specialist | `INACTIVE` |
 
-- Assign a sequential employee code (e.g. `EMP-001` through `EMP-008`)
-- Give each a unique email (e.g. `sara@company.com`)
-- Use a common dummy password (`password123` hashed at 12 rounds)
-- Hire dates should be realistic (spread over the last 2 years)
-- Employee role in User table: `EMPLOYEE` (except Admin Manager → can keep `ADMIN` or `MANAGER`)
+- Sequential employee codes `EMP-001` through `EMP-008`
+- Unique email per employee (e.g. `sara.harbi@company.com`)
+- Common dummy password `password123` hashed at 12 rounds
+- Realistic hire dates spread over the last 2 years
+- Both `create` and `update` branches always write `passwordHash` so re-runs never leave stale credentials
 
 ### Attendance Records
 
-Policy (use the seeded AttendancePolicy):
-- Work start: `09:00`
-- Late threshold: `09:15`
+Policy applied:
+- Work start: `09:00` — Late threshold: `09:15`
 - Working days: Sunday–Thursday (skip Friday and Saturday)
+- Seed range: last 30 calendar days up to (not including) today → ~21 working days
 
-Generate records for the **current month** up to yesterday. Cover all statuses:
+| Scenario         | Status             | Notes                                       |
+|------------------|--------------------|---------------------------------------------|
+| On-time          | `PRESENT`          | checkInAt 08:45–08:54, checkOutAt 17:00+    |
+| Late             | `LATE`             | checkInAt after 09:15, `isLate: true`       |
+| Missing checkout | `MISSING_CHECKOUT` | checkInAt present, checkOutAt null          |
+| Absent           | `ABSENT`           | no record inserted for that date            |
+| Half day         | `HALF_DAY`         | checkOutAt 13:00, totalMinutes ≈ 240        |
 
-| Scenario        | Status             | Description                                        |
-|-----------------|--------------------|----------------------------------------------------|
-| On-time         | `PRESENT`          | checkInAt ≤ 09:14, checkOutAt ≥ 17:00              |
-| Late            | `LATE`             | checkInAt between 09:15–10:30, `isLate: true`      |
-| Missing checkout| `MISSING_CHECKOUT` | checkInAt present, checkOutAt null                 |
-| Absent          | `ABSENT`           | no record (skip the day in seed)                   |
-| Half day        | `HALF_DAY`         | totalMinutes < 420 but ≥ 210                       |
-
-- Use `@@unique([employeeId, date])` — do not create duplicate records for the same employee+date
-- `totalMinutes` = difference between checkIn and checkOut in minutes (null if no checkout)
-- `lateMinutes` = minutes past 09:00 when late (0 otherwise)
-- Set `checkInLatitude / checkInLongitude` to plausible office coordinates
-- `source: WEB`
-
-Spread different scenarios across employees — not every employee should have the same pattern.
-
-### Leave / Absences
-
-The current schema has **no Leave model**. Leave/absence records are **blocked** — do not invent fields or models. Mark absent days by simply not inserting an AttendanceRecord for that date and leaving a comment in the seed. If a Leave model is added in a future iteration, this section can be wired up.
+Each employee has a fixed repeating 10-day pattern so scenarios are deterministic across re-runs. Maha Al-Anazi (INACTIVE) has no attendance records.
 
 ### Audit Logs
 
-Create sample audit log entries using the existing `AuditLog` model:
-
-| action                | targetType   | Description                        |
-|-----------------------|--------------|------------------------------------|
-| `EMPLOYEE_CREATED`    | `Employee`   | Admin created each of the 8 employees |
-| `EMPLOYEE_UPDATED`    | `Employee`   | One employee status changed         |
-| `ATTENDANCE_CORRECTED`| `AttendanceRecord` | Admin corrected one record   |
-| `SETTINGS_UPDATED`    | `AttendancePolicy` | Admin updated office policy  |
-
-- `actorId` = the seeded admin user's id
-- `metadata` = relevant JSON (e.g. `{ "field": "status", "from": "ACTIVE", "to": "INACTIVE" }`)
-- Use real-looking `ipAddress` values (e.g. `192.168.1.10`)
+11 entries: `EMPLOYEE_CREATED` × 8, `EMPLOYEE_UPDATED` × 1 (Maha status change), `ATTENDANCE_CORRECTED` × 1 (Omar missing checkout), `SETTINGS_UPDATED` × 1 (policy radius change). Cleared and recreated on every re-run.
 
 ### Attendance Policy
 
-Upsert a single active policy:
-
-| Field                  | Value               |
-|------------------------|---------------------|
-| officeName             | `Head Office`       |
-| officeLatitude         | `24.7136`           |
-| officeLongitude        | `46.6753`           |
-| allowedRadiusMeters    | `200`               |
-| workStartTime          | `09:00`             |
-| timezone               | `Asia/Riyadh`       |
-| minimumFullDayMinutes  | `420`               |
-| minimumHalfDayMinutes  | `210`               |
-| active                 | `true`              |
-
-### Rules
-
-- Safe to re-run: use `upsert` on User (by email), Department (by name), Employee (via userId), AttendancePolicy; use `deleteMany` + `create` for AttendanceRecord and AuditLog
-- Never store plain-text passwords
-- Use the `PrismaPg` adapter pattern (same as current `prisma/seed.ts`)
-- `SEED_EMAIL` constant at top of file — easy to change before running
-- After writing the seed, run `npx prisma db seed` to verify against the Neon dev branch
-
-## Blocker Check
-
-Before writing the seed, verify:
-- [ ] `Department`, `User`, `Employee`, `AttendanceRecord`, `AttendancePolicy`, `AuditLog` all exist in `prisma/schema.prisma` ✓
-- [ ] `Leave` model does NOT exist — skip leave records ✓
-- [ ] No new migration needed — existing schema covers all seeded data ✓
+Single active policy: Head Office, Riyadh (24.7136, 46.6753), 200 m radius, 09:00 start, `Asia/Riyadh`, 420 / 210 min thresholds.
 
 ---
 
@@ -139,6 +89,6 @@ Before writing the seed, verify:
 
 - 2026-07-04 — **Iteration 04 completed**: Neon PostgreSQL & Prisma 7 Migration. Upgraded Prisma v5 → v7 (ESM-only, driver adapters required, datasource URL moved to `prisma.config.ts`, generator provider renamed, output path now required). Configured Neon PostgreSQL as the database. Added `@prisma/adapter-pg` + `pg` driver, `dotenv` for CLI env loading. Set `"type": "module"` and `target: ES2023` in tsconfig. Created `prisma.config.ts` at project root. Updated all `@prisma/client` imports to generated client path (`@/generated/prisma/client`). Created and applied initial migration (`20260704104508_init`) to Neon dev branch. Seeded: 6 departments, attendance policy, admin account. Added `scripts/test-db.ts` and `npm run db:test` for connection verification — all checks pass. Branch: `feat/neon-prisma7`. Spec: `context/features/database-spec.md`.
 
-- 2026-07-04 — **Iteration 06 completed**: Attendance Seed Data. Replaced seed script with realistic attendance system data: admin user (faisal@example.com), 7 departments, 8 employees (7 active / 1 inactive) each with User + Employee records, 137 attendance records across 21 working days (Sunday–Thursday) with PRESENT/LATE/MISSING_CHECKOUT/HALF_DAY/ABSENT scenarios per employee, 11 audit log entries. No schema changes required. Branch: `feat/attendance-seed`. Spec: `context/features/seed-spec.md`.
-
 - 2026-07-04 — **Iteration 05 completed**: Seed Data (Item Types / Collections). Replaced the employee attendance seed script with demo data for an item-management context: user Faisal (isPro, emailVerified), 7 system ItemTypes (snippet/prompt/command/note/file/image/link), 5 Collections (React Patterns, AI Workflows, DevOps, Terminal Commands, Design Resources) with 18 total Items. Added new Prisma migration `20260704114829_seed_data_models` adding `isPro` + `emailVerified` to User and new `ItemType`, `Collection`, `Item` models. Fixed Turbopack/Prisma 7 dev-server crash by switching `npm run dev` to `--webpack` flag and adding `serverExternalPackages` to `next.config.ts`. Branch: `feat/seed-data`. Spec: `context/features/seed-spec.md` (prior version).
+
+- 2026-07-04 — **Iteration 06 completed**: Attendance Seed Data. Replaced seed script with realistic attendance system data: admin user (`faisal@example.com` / `12345678`), 7 departments, 8 employees (7 active / 1 inactive) each with User + Employee records, 137 attendance records across 21 working days (Sunday–Thursday) covering all 5 attendance statuses, 11 audit log entries. Fixed upsert to always refresh `passwordHash` in both `create` and `update` branches. No schema changes required. Branch: `feat/attendance-seed`. Spec: `context/features/seed-spec.md`.
