@@ -1,8 +1,99 @@
-# Current Feature
+# Current Feature: Iteration 05 — Seed Data
 
-No active feature. See History below for all completed iterations.
+## Status
+
+Not Started
+
+## Goals
+
+Replace the existing employee attendance seed script with rich sample data for development and demos. The new seed creates a real user, system item types, collections, and items as defined in `context/features/seed-spec.md`. The existing `prisma/seed.ts` is fully overwritten.
+
+## Spec Reference
+
+`context/features/seed-spec.md`
+
+## Implementation Details
+
+### User
+
+| Field          | Value                                      |
+|----------------|--------------------------------------------|
+| name           | Faisal                                     |
+| email          | from `EMAIL_ADDRESS` env var (placeholder) |
+| password       | `12345678` — hashed with bcryptjs, 12 rounds |
+| isPro          | true                                       |
+| emailVerified  | current date at seed time                  |
+
+### System Item Types
+
+Seeded with `isSystem: true`. All 7 must be upserted so the seed is idempotent.
+
+| name    | icon       | color   |
+|---------|------------|---------|
+| snippet | Code       | #3b82f6 |
+| prompt  | Sparkles   | #8b5cf6 |
+| command | Terminal   | #f97316 |
+| note    | StickyNote | #fde047 |
+| file    | File       | #6b7280 |
+| image   | Image      | #ec4899 |
+| link    | Link       | #10b981 |
+
+### Collections & Items
+
+#### React Patterns
+- Description: `Reusable React patterns and hooks`
+- 3 × snippet items (TypeScript):
+  - Custom hooks (useDebounce, useLocalStorage)
+  - Component patterns (Context providers, compound components)
+  - Utility functions
+
+#### AI Workflows
+- Description: `AI prompts and workflow automations`
+- 3 × prompt items:
+  - Code review prompts
+  - Documentation generation
+  - Refactoring assistance
+
+#### DevOps
+- Description: `Infrastructure and deployment resources`
+- 1 × snippet (Docker / CI/CD config)
+- 1 × command (deployment scripts)
+- 2 × link (real documentation URLs)
+
+#### Terminal Commands
+- Description: `Useful shell commands for everyday development`
+- 4 × command items:
+  - Git operations
+  - Docker commands
+  - Process management
+  - Package manager utilities
+
+#### Design Resources
+- Description: `UI/UX resources and references`
+- 4 × link items (real URLs):
+  - CSS / Tailwind references
+  - Component libraries
+  - Design systems
+  - Icon libraries
+
+### Rules
+
+- Use `upsert` or `deleteMany` + `createMany` so the script is safe to re-run.
+- Hash the password with `bcryptjs` at 12 rounds — never store plain text.
+- Use real, working URLs for all link items.
+- `EMAIL_ADDRESS` in the spec is a placeholder — use a clearly labelled constant at the top of the seed file (e.g. `const SEED_EMAIL = "faisal@example.com"`) so it is easy to change before running.
+- The seed must connect via the `PrismaPg` adapter (same pattern as current `prisma/seed.ts`).
+- Run `npx prisma db seed` after implementation to verify against the Neon dev branch.
+
+## Notes
+
+- The Prisma schema may need new models (`ItemType`, `Collection`, `Item`, etc.) — check the schema before writing seed data. If the models don't exist yet, note that as a blocker and do not invent field names.
+- If schema changes are required, create a new migration with `npx prisma migrate dev --name <name>` before seeding. Never use `db push`.
+- Spec reference: `context/features/seed-spec.md`
 
 ---
+
+## History
 
 ## History
 
