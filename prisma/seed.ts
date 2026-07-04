@@ -7,449 +7,405 @@ import bcrypt from "bcryptjs";
 const SEED_EMAIL = "faisal@example.com";
 // ─────────────────────────────────────────────────────────────────────────────
 
+const EMPLOYEE_PASSWORD = "password123";
+const OFFICE_LAT = 24.7136;
+const OFFICE_LNG = 46.6753;
+const WORK_START_HOUR = 9;
+const LATE_THRESHOLD_MIN = 15; // minutes past 09:00
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" });
 const prisma = new PrismaClient({ adapter });
 
-// ── Item Types ────────────────────────────────────────────────────────────────
-const ITEM_TYPES = [
-  { name: "snippet", icon: "Code",       color: "#3b82f6" },
-  { name: "prompt",  icon: "Sparkles",   color: "#8b5cf6" },
-  { name: "command", icon: "Terminal",   color: "#f97316" },
-  { name: "note",    icon: "StickyNote", color: "#fde047" },
-  { name: "file",    icon: "File",       color: "#6b7280" },
-  { name: "image",   icon: "Image",      color: "#ec4899" },
-  { name: "link",    icon: "Link",       color: "#10b981" },
-];
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Scenario = "PRESENT" | "LATE" | "MISSING_CHECKOUT" | "HALF_DAY" | "ABSENT";
 
-// ── Collections ───────────────────────────────────────────────────────────────
-const COLLECTIONS: Array<{
+interface EmployeeSeed {
   name: string;
-  description: string;
-  items: Array<{
-    typeName: string;
-    title: string;
-    content: string;
-    language?: string;
-  }>;
-}> = [
+  email: string;
+  department: string;
+  jobTitle: string;
+  employeeCode: string;
+  role: "EMPLOYEE" | "MANAGER" | "ADMIN";
+  empStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  hiredAt: Date;
+  pattern: Scenario[];
+}
+
+// ── Static Data ───────────────────────────────────────────────────────────────
+const DEPARTMENTS = [
+  "Management", "HR", "Engineering", "Design", "QA", "DevOps", "Support",
+];
+
+const EMPLOYEES: EmployeeSeed[] = [
   {
-    name: "React Patterns",
-    description: "Reusable React patterns and hooks",
-    items: [
-      {
-        typeName: "snippet",
-        title: "Custom React Hooks",
-        language: "typescript",
-        content: `import { useState, useEffect } from 'react';
-
-export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
-
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? (JSON.parse(item) as T) : initialValue;
-    } catch {
-      return initialValue;
-    }
-  });
-  const setValue = (value: T) => {
-    setStoredValue(value);
-    window.localStorage.setItem(key, JSON.stringify(value));
-  };
-  return [storedValue, setValue] as const;
-}`,
-      },
-      {
-        typeName: "snippet",
-        title: "Component Patterns",
-        language: "typescript",
-        content: `import React, { createContext, useContext, useState } from 'react';
-
-// ── Context Provider Pattern ──────────────────────────────────────────────────
-interface ThemeContextType {
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
-}
-const ThemeContext = createContext<ThemeContextType | null>(null);
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme: () => setTheme(t => t === 'light' ? 'dark' : 'light') }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-export const useTheme = () => {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return ctx;
-};
-
-// ── Compound Component Pattern ────────────────────────────────────────────────
-function Tabs({ children }: { children: React.ReactNode }) {
-  return <div className="tabs">{children}</div>;
-}
-Tabs.Tab = function Tab({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div data-label={label}>{children}</div>;
-};
-export { Tabs };`,
-      },
-      {
-        typeName: "snippet",
-        title: "Utility Functions",
-        language: "typescript",
-        content: `export const cn = (...classes: (string | undefined | null | false)[]) =>
-  classes.filter(Boolean).join(' ');
-
-export function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
-  return arr.reduce((acc, item) => {
-    const group = String(item[key]);
-    return { ...acc, [group]: [...(acc[group] ?? []), item] };
-  }, {} as Record<string, T[]>);
-}
-
-export function formatRelativeTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return \`\${mins}m ago\`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return \`\${hrs}h ago\`;
-  return \`\${Math.floor(hrs / 24)}d ago\`;
-}
-
-export function slugify(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}`,
-      },
-    ],
+    name: "Faisal Al-Qahtani",
+    email: "faisal.qahtani@company.com",
+    department: "Management",
+    jobTitle: "Admin Manager",
+    employeeCode: "EMP-001",
+    role: "MANAGER",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2022-01-15"),
+    pattern: ["PRESENT", "PRESENT", "PRESENT", "PRESENT", "PRESENT", "LATE", "PRESENT", "PRESENT", "MISSING_CHECKOUT", "PRESENT"],
   },
-
   {
-    name: "AI Workflows",
-    description: "AI prompts and workflow automations",
-    items: [
-      {
-        typeName: "prompt",
-        title: "Code Review Prompt",
-        content: `You are an expert code reviewer. Review the following code and provide structured feedback:
-
-1. **Security issues** — vulnerabilities, injection risks, unsafe patterns
-2. **Performance concerns** — inefficiencies, unnecessary re-renders, N+1 queries
-3. **Code quality** — readability, naming, complexity, DRY violations
-4. **Best practices** — language/framework conventions not followed
-5. **Suggested improvements** — with specific before/after code examples
-
-Rules:
-- Be concise. Flag critical issues first.
-- Skip praise — only actionable feedback.
-- Rate overall severity: Low / Medium / High / Critical
-
-Code to review:
-\`\`\`
-[PASTE CODE HERE]
-\`\`\``,
-      },
-      {
-        typeName: "prompt",
-        title: "Documentation Generation",
-        content: `Generate comprehensive documentation for the following code:
-
-- Write a clear one-sentence summary of what it does
-- List all parameters with their types and descriptions
-- Describe the return value (type + meaning)
-- Note any thrown errors or edge cases
-- Add a realistic usage example
-- Use JSDoc format for functions/methods
-
-Output only the documentation — no explanations around it.
-
-Code:
-\`\`\`
-[PASTE CODE HERE]
-\`\`\``,
-      },
-      {
-        typeName: "prompt",
-        title: "Refactoring Assistance",
-        content: `Refactor the following code to improve:
-- Readability and clarity
-- Performance where obviously beneficial
-- Separation of concerns
-- Type safety (TypeScript)
-- Remove duplication (DRY)
-
-Strict rules:
-- Preserve all existing behaviour exactly — no regressions
-- Do not add new features or handle new edge cases
-- Keep changes minimal and focused
-- After the refactored code, explain each significant change and the reason for it
-
-Code to refactor:
-\`\`\`
-[PASTE CODE HERE]
-\`\`\``,
-      },
-    ],
+    name: "Sara Al-Harbi",
+    email: "sara.harbi@company.com",
+    department: "HR",
+    jobTitle: "HR Specialist",
+    employeeCode: "EMP-002",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2022-03-01"),
+    pattern: ["PRESENT", "PRESENT", "PRESENT", "PRESENT", "LATE", "PRESENT", "PRESENT", "ABSENT", "PRESENT", "PRESENT"],
   },
-
   {
-    name: "DevOps",
-    description: "Infrastructure and deployment resources",
-    items: [
-      {
-        typeName: "snippet",
-        title: "Docker & CI/CD Config",
-        language: "yaml",
-        content: `# Dockerfile — multi-stage Next.js build
-FROM node:22-alpine AS base
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-FROM base AS build
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM base AS prod
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-EXPOSE 3000
-CMD ["npm", "start"]
-
----
-# .github/workflows/ci.yml
-name: CI
-on:
-  push:
-    branches: [main]
-  pull_request:
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npm run build`,
-      },
-      {
-        typeName: "command",
-        title: "Deployment Scripts",
-        content: `# Deploy to Vercel production
-npx vercel --prod --yes
-
-# Run DB migrations then deploy
-npx prisma migrate deploy && npx vercel --prod --yes
-
-# Rollback last Vercel deployment
-npx vercel rollback
-
-# Check deployment status
-npx vercel ls --limit 5`,
-      },
-      {
-        typeName: "link",
-        title: "Docker Reference Docs",
-        content: "https://docs.docker.com/reference/",
-      },
-      {
-        typeName: "link",
-        title: "GitHub Actions Docs",
-        content: "https://docs.github.com/en/actions",
-      },
-    ],
+    name: "Omar Al-Otaibi",
+    email: "omar.otaibi@company.com",
+    department: "Engineering",
+    jobTitle: "Software Engineer",
+    employeeCode: "EMP-003",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2022-06-15"),
+    pattern: ["PRESENT", "LATE", "PRESENT", "MISSING_CHECKOUT", "PRESENT", "ABSENT", "LATE", "PRESENT", "PRESENT", "LATE"],
   },
-
   {
-    name: "Terminal Commands",
-    description: "Useful shell commands for everyday development",
-    items: [
-      {
-        typeName: "command",
-        title: "Git Operations",
-        content: `# Undo last commit, keep changes staged
-git reset --soft HEAD~1
-
-# Create branch and push to remote
-git checkout -b feat/my-feature && git push -u origin feat/my-feature
-
-# Clean up merged local branches
-git branch --merged main | grep -v '^\\* \\|main\\|master' | xargs git branch -d
-
-# Amend last commit message without changing files
-git commit --amend --only -m "new message"
-
-# Show log as graph
-git log --oneline --graph --all --decorate`,
-      },
-      {
-        typeName: "command",
-        title: "Docker Commands",
-        content: `# Remove all stopped containers and dangling images
-docker system prune -af
-
-# Exec into running container (finds by name)
-docker exec -it $(docker ps -qf "name=app") sh
-
-# Stream container logs (last 100 lines)
-docker logs -f --tail=100 $(docker ps -qf "name=app")
-
-# Build image and run with env file
-docker build -t myapp:latest . && docker run --env-file .env -p 3000:3000 myapp:latest
-
-# Show running containers with resource usage
-docker stats --no-stream`,
-      },
-      {
-        typeName: "command",
-        title: "Process Management",
-        content: `# Kill process on a specific port
-lsof -ti:3000 | xargs kill -9
-
-# Find node processes
-ps aux | grep node | grep -v grep
-
-# Run process in background, save PID
-nohup node server.js > app.log 2>&1 & echo $! > app.pid
-
-# Graceful shutdown via PID file
-kill -SIGTERM $(cat app.pid)
-
-# Watch file changes (macOS/Linux)
-watch -n 2 'ls -lh dist/'`,
-      },
-      {
-        typeName: "command",
-        title: "Package Manager Utils",
-        content: `# Check for outdated packages
-npm outdated
-
-# Upgrade all deps to latest (interactive)
-npx npm-check-updates -ui
-
-# Audit and auto-fix vulnerabilities
-npm audit fix
-
-# List global packages
-npm list -g --depth=0
-
-# Clean reinstall
-rm -rf node_modules package-lock.json && npm install
-
-# Check why a package is installed
-npm why <package-name>`,
-      },
-    ],
+    name: "Noura Al-Dossari",
+    email: "noura.dossari@company.com",
+    department: "Design",
+    jobTitle: "Product Designer",
+    employeeCode: "EMP-004",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2023-01-10"),
+    pattern: ["PRESENT", "PRESENT", "PRESENT", "HALF_DAY", "PRESENT", "PRESENT", "LATE", "PRESENT", "PRESENT", "PRESENT"],
   },
-
   {
-    name: "Design Resources",
-    description: "UI/UX resources and references",
-    items: [
-      {
-        typeName: "link",
-        title: "Tailwind CSS Documentation",
-        content: "https://tailwindcss.com/docs",
-      },
-      {
-        typeName: "link",
-        title: "shadcn/ui Components",
-        content: "https://ui.shadcn.com/docs/components",
-      },
-      {
-        typeName: "link",
-        title: "Material Design 3 Components",
-        content: "https://m3.material.io/components",
-      },
-      {
-        typeName: "link",
-        title: "Lucide Icons Library",
-        content: "https://lucide.dev/icons",
-      },
-    ],
+    name: "Khalid Al-Mutairi",
+    email: "khalid.mutairi@company.com",
+    department: "Engineering",
+    jobTitle: "Backend Developer",
+    employeeCode: "EMP-005",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2023-04-01"),
+    pattern: ["LATE", "LATE", "PRESENT", "LATE", "MISSING_CHECKOUT", "LATE", "PRESENT", "ABSENT", "LATE", "LATE"],
+  },
+  {
+    name: "Reem Al-Zahrani",
+    email: "reem.zahrani@company.com",
+    department: "QA",
+    jobTitle: "QA Engineer",
+    employeeCode: "EMP-006",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2023-07-01"),
+    pattern: ["PRESENT", "PRESENT", "LATE", "PRESENT", "PRESENT", "ABSENT", "PRESENT", "PRESENT", "PRESENT", "LATE"],
+  },
+  {
+    name: "Abdullah Al-Shehri",
+    email: "abdullah.shehri@company.com",
+    department: "DevOps",
+    jobTitle: "DevOps Engineer",
+    employeeCode: "EMP-007",
+    role: "EMPLOYEE",
+    empStatus: "ACTIVE",
+    hiredAt: new Date("2024-01-15"),
+    pattern: ["PRESENT", "PRESENT", "ABSENT", "PRESENT", "PRESENT", "MISSING_CHECKOUT", "PRESENT", "LATE", "PRESENT", "PRESENT"],
+  },
+  {
+    name: "Maha Al-Anazi",
+    email: "maha.anazi@company.com",
+    department: "Support",
+    jobTitle: "Support Specialist",
+    employeeCode: "EMP-008",
+    role: "EMPLOYEE",
+    empStatus: "INACTIVE",
+    hiredAt: new Date("2024-03-01"),
+    pattern: [], // inactive — no attendance records seeded
   },
 ];
+
+// ── Date Helpers ──────────────────────────────────────────────────────────────
+
+/** Returns all Sunday–Thursday dates from `from` (inclusive) up to `to` (exclusive). */
+function workingDaysBetween(from: Date, to: Date): Date[] {
+  const days: Date[] = [];
+  const cur = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cur < end) {
+    const dow = cur.getDay(); // 0=Sun, 5=Fri, 6=Sat
+    if (dow !== 5 && dow !== 6) days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+/** Returns a date-only value (midnight UTC) suitable for @db.Date fields. */
+function toDateOnly(d: Date): Date {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
+/** Builds a datetime on the same calendar date as `base` with given h:m. */
+function withTime(base: Date, hour: number, minute: number): Date {
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, minute, 0, 0);
+}
+
+// ── Attendance Record Builder ─────────────────────────────────────────────────
+
+function buildAttendanceData(
+  date: Date,
+  scenario: Scenario,
+  employeeId: string,
+  empIdx: number,
+  dayIdx: number,
+) {
+  // Deterministic offsets so times are stable across re-runs
+  const v = (empIdx * 7 + dayIdx * 13) % 10; // 0..9
+
+  if (scenario === "ABSENT") return null; // no record inserted
+
+  const dateOnly = toDateOnly(date);
+
+  if (scenario === "PRESENT") {
+    const checkInAt = withTime(date, WORK_START_HOUR - 1, 45 + v); // 08:45–08:54
+    const checkOutAt = withTime(date, 17, v * 2);                   // 17:00–17:18
+    const totalMinutes = Math.floor((checkOutAt.getTime() - checkInAt.getTime()) / 60000);
+    return {
+      employeeId, date: dateOnly,
+      checkInAt, checkOutAt, totalMinutes,
+      status: "PRESENT" as const, isLate: false, lateMinutes: 0,
+      checkInLatitude: OFFICE_LAT, checkInLongitude: OFFICE_LNG,
+      checkOutLatitude: OFFICE_LAT, checkOutLongitude: OFFICE_LNG,
+      checkInDistanceMeters: 40 + v * 8, checkOutDistanceMeters: 35 + v * 9,
+      source: "WEB" as const,
+    };
+  }
+
+  if (scenario === "LATE") {
+    const extraMin = 20 + v * 8;                                     // 20–92 min late
+    const checkInAt = withTime(date, WORK_START_HOUR, LATE_THRESHOLD_MIN + extraMin);
+    const checkOutAt = withTime(date, 17, 30);
+    const totalMinutes = Math.floor((checkOutAt.getTime() - checkInAt.getTime()) / 60000);
+    return {
+      employeeId, date: dateOnly,
+      checkInAt, checkOutAt, totalMinutes,
+      status: "LATE" as const, isLate: true, lateMinutes: LATE_THRESHOLD_MIN + extraMin,
+      checkInLatitude: OFFICE_LAT, checkInLongitude: OFFICE_LNG,
+      checkOutLatitude: OFFICE_LAT, checkOutLongitude: OFFICE_LNG,
+      checkInDistanceMeters: 60 + v * 5, checkOutDistanceMeters: 55 + v * 6,
+      source: "WEB" as const,
+    };
+  }
+
+  if (scenario === "MISSING_CHECKOUT") {
+    const checkInAt = withTime(date, WORK_START_HOUR, v);            // 09:00–09:09
+    return {
+      employeeId, date: dateOnly,
+      checkInAt, checkOutAt: null, totalMinutes: null,
+      status: "MISSING_CHECKOUT" as const, isLate: false, lateMinutes: 0,
+      checkInLatitude: OFFICE_LAT, checkInLongitude: OFFICE_LNG,
+      checkOutLatitude: null, checkOutLongitude: null,
+      checkInDistanceMeters: 45 + v * 7, checkOutDistanceMeters: null,
+      source: "WEB" as const,
+    };
+  }
+
+  if (scenario === "HALF_DAY") {
+    const checkInAt = withTime(date, WORK_START_HOUR, v);
+    const checkOutAt = withTime(date, 13, 0);                        // leaves at 13:00
+    const totalMinutes = Math.floor((checkOutAt.getTime() - checkInAt.getTime()) / 60000); // ~240
+    return {
+      employeeId, date: dateOnly,
+      checkInAt, checkOutAt, totalMinutes,
+      status: "HALF_DAY" as const, isLate: false, lateMinutes: 0,
+      checkInLatitude: OFFICE_LAT, checkInLongitude: OFFICE_LNG,
+      checkOutLatitude: OFFICE_LAT, checkOutLongitude: OFFICE_LNG,
+      checkInDistanceMeters: 38 + v * 6, checkOutDistanceMeters: 42 + v * 5,
+      source: "WEB" as const,
+    };
+  }
+
+  return null;
+}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
-  // 1. User
-  const passwordHash = await bcrypt.hash("12345678", 12);
-  const user = await prisma.user.upsert({
+  // ── 1. Attendance Policy ───────────────────────────────────────────────────
+  await prisma.attendancePolicy.updateMany({ where: { active: true }, data: { active: false } });
+  await prisma.attendancePolicy.create({
+    data: {
+      officeName: "Head Office",
+      officeLatitude: OFFICE_LAT,
+      officeLongitude: OFFICE_LNG,
+      allowedRadiusMeters: 200,
+      workStartTime: "09:00",
+      timezone: "Asia/Riyadh",
+      minimumFullDayMinutes: 420,
+      minimumHalfDayMinutes: 210,
+      active: true,
+    },
+  });
+  console.log("✓ Attendance policy seeded");
+
+  // ── 2. Departments ─────────────────────────────────────────────────────────
+  const deptMap: Record<string, string> = {};
+  for (const name of DEPARTMENTS) {
+    const dept = await prisma.department.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+    deptMap[name] = dept.id;
+  }
+  console.log(`✓ Departments seeded (${DEPARTMENTS.length})`);
+
+  // ── 3. Admin User ──────────────────────────────────────────────────────────
+  const adminHash = await bcrypt.hash("12345678", 12);
+  const admin = await prisma.user.upsert({
     where: { email: SEED_EMAIL },
-    update: { isPro: true, emailVerified: new Date() },
+    update: {},
     create: {
       name: "Faisal",
       email: SEED_EMAIL,
-      passwordHash,
-      isPro: true,
+      passwordHash: adminHash,
+      role: "ADMIN",
+      status: "ACTIVE",
       emailVerified: new Date(),
     },
   });
-  console.log(`✓ User upserted: ${user.email}`);
+  console.log(`✓ Admin user: ${admin.email}`);
 
-  // 2. Item Types (system)
-  for (const t of ITEM_TYPES) {
-    await prisma.itemType.upsert({
-      where: { name: t.name },
-      update: { icon: t.icon, color: t.color, isSystem: true },
-      create: { ...t, isSystem: true },
+  // ── 4. Employees ───────────────────────────────────────────────────────────
+  const empHash = await bcrypt.hash(EMPLOYEE_PASSWORD, 12);
+  const employeeIds: string[] = [];
+
+  for (const e of EMPLOYEES) {
+    const userStatus = e.empStatus === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    const user = await prisma.user.upsert({
+      where: { email: e.email },
+      update: { name: e.name, role: e.role, status: userStatus },
+      create: {
+        name: e.name,
+        email: e.email,
+        passwordHash: empHash,
+        role: e.role,
+        status: userStatus,
+        emailVerified: new Date(),
+      },
     });
+
+    const employee = await prisma.employee.upsert({
+      where: { employeeCode: e.employeeCode },
+      update: {
+        jobTitle: e.jobTitle,
+        departmentId: deptMap[e.department],
+        status: e.empStatus,
+      },
+      create: {
+        userId: user.id,
+        employeeCode: e.employeeCode,
+        jobTitle: e.jobTitle,
+        departmentId: deptMap[e.department],
+        hiredAt: e.hiredAt,
+        status: e.empStatus,
+      },
+    });
+
+    employeeIds.push(employee.id);
   }
-  console.log(`✓ Item types seeded (${ITEM_TYPES.length})`);
+  console.log(`✓ Employees seeded (${EMPLOYEES.length})`);
 
-  // 3. Collections + Items
-  for (const col of COLLECTIONS) {
-    // Upsert the collection
-    const collection = await prisma.collection.upsert({
-      where: { userId_name: { userId: user.id, name: col.name } },
-      update: { description: col.description },
-      create: { userId: user.id, name: col.name, description: col.description },
-    });
+  // ── 5. Attendance Records ──────────────────────────────────────────────────
+  // Generate records for the last 30 calendar days up to (not including) today.
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  const workingDays = workingDaysBetween(thirtyDaysAgo, today);
 
-    // Replace all items in this collection (idempotent)
-    await prisma.item.deleteMany({ where: { collectionId: collection.id } });
+  // Clear existing records for seeded employees before recreating
+  await prisma.attendanceRecord.deleteMany({
+    where: { employeeId: { in: employeeIds } },
+  });
 
-    for (const item of col.items) {
-      const typeRecord = await prisma.itemType.findUniqueOrThrow({
-        where: { name: item.typeName },
-      });
-      await prisma.item.create({
-        data: {
-          collectionId: collection.id,
-          typeId: typeRecord.id,
-          title: item.title,
-          content: item.content,
-          language: item.language ?? null,
-        },
-      });
+  let recordCount = 0;
+  for (let empIdx = 0; empIdx < EMPLOYEES.length; empIdx++) {
+    const e = EMPLOYEES[empIdx];
+    if (e.pattern.length === 0) continue; // inactive — skip
+
+    const employeeId = employeeIds[empIdx];
+
+    for (let dayIdx = 0; dayIdx < workingDays.length; dayIdx++) {
+      const date = workingDays[dayIdx];
+      const scenario = e.pattern[dayIdx % e.pattern.length];
+      const data = buildAttendanceData(date, scenario, employeeId, empIdx, dayIdx);
+      if (!data) continue; // ABSENT — no record
+
+      await prisma.attendanceRecord.create({ data });
+      recordCount++;
     }
-
-    console.log(`✓ Collection "${col.name}" — ${col.items.length} items`);
   }
+  console.log(`✓ Attendance records seeded (${recordCount})`);
+
+  // ── 6. Audit Logs ─────────────────────────────────────────────────────────
+  await prisma.auditLog.deleteMany({ where: { actorId: admin.id } });
+
+  const auditEntries = [
+    ...EMPLOYEES.map((e, i) => ({
+      actorId: admin.id,
+      action: "EMPLOYEE_CREATED",
+      targetType: "Employee",
+      targetId: employeeIds[i],
+      metadata: { employeeCode: e.employeeCode, name: e.name, department: e.department },
+      ipAddress: "192.168.1.10",
+      userAgent: "Mozilla/5.0 (seed)",
+    })),
+    {
+      actorId: admin.id,
+      action: "EMPLOYEE_UPDATED",
+      targetType: "Employee",
+      targetId: employeeIds[7], // Maha Al-Anazi — status changed to INACTIVE
+      metadata: { field: "status", from: "ACTIVE", to: "INACTIVE" },
+      ipAddress: "192.168.1.10",
+      userAgent: "Mozilla/5.0 (seed)",
+    },
+    {
+      actorId: admin.id,
+      action: "ATTENDANCE_CORRECTED",
+      targetType: "AttendanceRecord",
+      targetId: employeeIds[2], // Omar Al-Otaibi
+      metadata: {
+        field: "checkOutAt",
+        from: null,
+        to: "17:00",
+        reason: "Employee forgot to check out",
+      },
+      ipAddress: "192.168.1.10",
+      userAgent: "Mozilla/5.0 (seed)",
+    },
+    {
+      actorId: admin.id,
+      action: "SETTINGS_UPDATED",
+      targetType: "AttendancePolicy",
+      targetId: "policy",
+      metadata: { field: "allowedRadiusMeters", from: 100, to: 200 },
+      ipAddress: "192.168.1.10",
+      userAgent: "Mozilla/5.0 (seed)",
+    },
+  ];
+
+  for (const entry of auditEntries) {
+    await prisma.auditLog.create({ data: entry as Parameters<typeof prisma.auditLog.create>[0]["data"] });
+  }
+  console.log(`✓ Audit logs seeded (${auditEntries.length})`);
 
   console.log("\n✅  Seed complete.");
-  console.log(`   User:     ${SEED_EMAIL}`);
-  console.log(`   Password: 12345678`);
+  console.log(`   Admin login:      ${SEED_EMAIL} / 12345678`);
+  console.log(`   Employee login:   <any employee email> / ${EMPLOYEE_PASSWORD}`);
+  console.log(`   Working days seeded: ${workingDays.length}`);
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
+  .catch((e) => { console.error(e); process.exit(1); })
   .finally(() => prisma.$disconnect());
