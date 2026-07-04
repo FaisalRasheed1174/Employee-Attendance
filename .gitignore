@@ -52,3 +52,6 @@ credentials/
 *.secret
 serviceAccountKey.json
 firebase-adminsdk*.json
+
+# prisma generated client
+/src/generated/
