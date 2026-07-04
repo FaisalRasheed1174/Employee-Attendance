@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatTime, formatDate, formatMinutes } from "@/lib/format";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 const DEPARTMENTS = ["Engineering", "HR", "Finance", "Operations", "Sales", "Support"];
 const STATUSES = ["PRESENT", "LATE", "HALF_DAY", "ABSENT", "ON_LEAVE", "MISSING_CHECKOUT"];

@@ -2,7 +2,7 @@
 
 ## Status
 
-Not Started
+Completed (code) — pending: add Neon DATABASE_URL to .env, run `npx prisma migrate dev --name init`, run `npx prisma db seed`
 
 ## Goals
 
