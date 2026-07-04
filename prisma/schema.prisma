@@ -41,19 +41,62 @@ enum AttendanceSource {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  name         String
-  email        String     @unique
-  passwordHash String
-  role         Role       @default(EMPLOYEE)
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  passwordHash  String
+  role          Role       @default(EMPLOYEE)
+  status        UserStatus @default(ACTIVE)
+  isPro         Boolean    @default(false)
+  emailVerified DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   employee    Employee?
-  auditLogs   AuditLog[]          @relation("AuditActor")
-  corrections AttendanceRecord[]  @relation("CorrectedBy")
+  auditLogs   AuditLog[]         @relation("AuditActor")
+  corrections AttendanceRecord[] @relation("CorrectedBy")
+  collections Collection[]
+}
+
+model ItemType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  icon      String
+  color     String
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Item[]
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  items Item[]
+
+  @@unique([userId, name])
+}
+
+model Item {
+  id           String   @id @default(cuid())
+  collectionId String
+  typeId       String
+  title        String
+  content      String
+  language     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  type       ItemType   @relation(fields: [typeId], references: [id])
 }
 
 model Department {
